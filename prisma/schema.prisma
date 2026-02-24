@@ -1,0 +1,243 @@
+// This is your Prisma schema file
+// Learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  STUDENT
+  TUTOR
+  ADMIN
+}
+
+enum CourseStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum MaterialType {
+  PDF
+  IMAGE
+  TEXT
+  VIDEO
+  VIDEO_LINK
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum EnrollmentStatus {
+  ACTIVE
+  COMPLETED
+  SUSPENDED
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  name          String
+  password      String
+  role          Role     @default(STUDENT)
+  avatar        String?
+  bio           String?
+  phone         String?
+  isVerified    Boolean  @default(false)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  taughtCourses Course[]     @relation("TutorCourses")
+  enrollments   Enrollment[]
+  payments      Payment[]
+  reviews       Review[]
+  sessions      Session[]
+
+  @@map("users")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model Category {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  slug        String   @unique
+  description String?
+  icon        String?
+  createdAt   DateTime @default(now())
+
+  courses Course[]
+
+  @@map("categories")
+}
+
+model Course {
+  id           String       @id @default(cuid())
+  title        String
+  slug         String       @unique
+  description  String
+  thumbnail    String?
+  price        Float        @default(0)
+  currency     String       @default("NGN")
+  status       CourseStatus @default(DRAFT)
+  level        String       @default("Beginner")
+  duration     String?
+  language     String       @default("English")
+  requirements String?   @db.Text  // stored as JSON string
+  objectives   String?   @db.Text  // stored as JSON string
+  tags         String?   @db.Text  // stored as JSON string
+  isFreemium   Boolean      @default(false)
+  tutorId      String
+  categoryId   String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  // Relations
+  tutor       User         @relation("TutorCourses", fields: [tutorId], references: [id])
+  category    Category?    @relation(fields: [categoryId], references: [id])
+  modules     Module[]
+  enrollments Enrollment[]
+  payments    Payment[]
+  reviews     Review[]
+
+  @@map("courses")
+}
+
+model Module {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  order       Int
+  courseId    String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  course    Course     @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  materials Material[]
+
+  @@map("modules")
+}
+
+model Material {
+  id          String       @id @default(cuid())
+  title       String
+  description String?
+  type        MaterialType
+  fileUrl     String?
+  videoUrl    String?
+  content     String?      // For text materials
+  duration    Int?         // In seconds for videos
+  fileSize    Int?         // In bytes
+  mimeType    String?
+  order       Int
+  isFree      Boolean      @default(false)
+  moduleId    String
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  module   Module    @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  progress Progress[]
+
+  @@map("materials")
+}
+
+model Enrollment {
+  id        String           @id @default(cuid())
+  userId    String
+  courseId  String
+  status    EnrollmentStatus @default(ACTIVE)
+  progress  Float            @default(0)
+  completedAt DateTime?
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  user     User       @relation(fields: [userId], references: [id])
+  course   Course     @relation(fields: [courseId], references: [id])
+  progresses Progress[]
+
+  @@unique([userId, courseId])
+  @@map("enrollments")
+}
+
+model Progress {
+  id           String     @id @default(cuid())
+  enrollmentId String
+  materialId   String
+  completed    Boolean    @default(false)
+  watchTime    Int?       // In seconds
+  completedAt  DateTime?
+  createdAt    DateTime   @default(now())
+
+  enrollment Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  material   Material   @relation(fields: [materialId], references: [id], onDelete: Cascade)
+
+  @@unique([enrollmentId, materialId])
+  @@map("progress")
+}
+
+model Payment {
+  id              String        @id @default(cuid())
+  userId          String
+  courseId        String
+  amount          Float
+  currency        String        @default("NGN")
+  status          PaymentStatus @default(PENDING)
+  provider        String        // stripe, paystack, etc.
+  providerRef     String?       @unique
+  metadata        Json?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  user   User   @relation(fields: [userId], references: [id])
+  course Course @relation(fields: [courseId], references: [id])
+
+  @@map("payments")
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  userId    String
+  courseId  String
+  rating    Int      // 1-5
+  comment   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user   User   @relation(fields: [userId], references: [id])
+  course Course @relation(fields: [courseId], references: [id])
+
+  @@unique([userId, courseId])
+  @@map("reviews")
+}
+
+model Announcement {
+  id        String   @id @default(cuid())
+  title     String
+  content   String
+  targetRole Role?   // null = all roles
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@map("announcements")
+}
