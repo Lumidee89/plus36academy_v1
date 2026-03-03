@@ -3,6 +3,9 @@ import { prisma } from '@/lib/prisma'
 import { requireRole } from '@/lib/auth'
 import { successResponse, errorResponse } from '@/lib/api'
 
+export const dynamic = 'force-dynamic' // Add this line
+export const revalidate = 0 // Add this line
+
 export async function GET(request: NextRequest) {
   try {
     const { error, user } = await requireRole(request, ['ADMIN'])
