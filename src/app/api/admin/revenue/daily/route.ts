@@ -3,6 +3,10 @@ import { prisma } from '@/lib/prisma'
 import { requireRole } from '@/lib/auth'
 import { successResponse, errorResponse } from '@/lib/api'
 
+// Add these two lines to prevent static generation
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 export async function GET(request: NextRequest) {
   try {
     const { error, user } = await requireRole(request, ['ADMIN'])
