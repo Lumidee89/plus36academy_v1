@@ -9,6 +9,7 @@ export default function AdminDashboard() {
     totalRevenue: 0, activeEnrollments: 0, completedEnrollments: 0,
   })
   const [recentUsers, setRecentUsers] = useState<any[]>([])
+  const [pendingCounts, setPendingCounts] = useState({ courses: 0, tutors: 0 })
 
   useEffect(() => {
     fetchData()
@@ -25,10 +26,29 @@ export default function AdminDashboard() {
       ])
       if (statsRes.ok) setStats((await statsRes.json()).data)
       if (usersRes.ok) setRecentUsers((await usersRes.json()).data || [])
+
+      // Fetch pending counts
+      try {
+        const coursesRes = await fetch('/api/courses?status=PENDING&limit=1', { headers })
+        if (coursesRes.ok) {
+          const coursesData = await coursesRes.json()
+          setPendingCounts(prev => ({ ...prev, courses: coursesData.pagination?.total || 0 }))
+        }
+        
+        const tutorsRes = await fetch('/api/users?role=TUTOR&status=PENDING&limit=1', { headers })
+        if (tutorsRes.ok) {
+          const tutorsData = await tutorsRes.json()
+          setPendingCounts(prev => ({ ...prev, tutors: tutorsData.pagination?.total || 0 }))
+        }
+      } catch (error) {
+        console.error('Failed to fetch pending counts:', error)
+      }
     } catch {
       // Demo data
       setStats({ totalStudents: 12847, totalTutors: 96, totalCourses: 284, totalRevenue: 45820000, activeEnrollments: 3421, completedEnrollments: 8234 })
       setRecentUsers(mockUsers)
+      // Demo pending counts
+      setPendingCounts({ courses: 3, tutors: 5 })
     }
   }
 
@@ -52,7 +72,7 @@ export default function AdminDashboard() {
     <div className="space-y-8">
       {/* Header */}
       <div>
-        <h1 className="font-display text-3xl font-black text-white mb-1">Admin Control Center</h1>
+        <h1 className="font-display text-3xl font-black text-dark-300 mb-1">Admin Dashboard</h1>
         <p className="text-dark-400">Platform overview and management</p>
       </div>
 
@@ -73,7 +93,7 @@ export default function AdminDashboard() {
                 {s.change}
               </span>
             </div>
-            <div className="text-2xl font-bold text-white mb-1">{s.value}</div>
+            <div className="text-2xl font-bold text-dark-300 mb-1">{s.value}</div>
             <div className="text-dark-400 text-sm">{s.label}</div>
           </div>
         ))}
@@ -83,7 +103,7 @@ export default function AdminDashboard() {
         {/* Recent users */}
         <div className="card-dark rounded-3xl overflow-hidden">
           <div className="px-6 py-4 border-b border-dark-800 flex items-center justify-between">
-            <h2 className="font-bold text-white">Recent Users</h2>
+            <h2 className="font-bold text-dark-400">Recent Users</h2>
             <Link href="/dashboard/admin/users" className="text-brand-400 text-sm flex items-center gap-1">
               View all <ArrowRight size={14} />
             </Link>
@@ -95,7 +115,7 @@ export default function AdminDashboard() {
                   {user.name[0]}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-white text-sm font-medium truncate">{user.name}</div>
+                  <div className="text-dark-400 text-sm font-medium truncate">{user.name}</div>
                   <div className="text-dark-500 text-xs truncate">{user.email}</div>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
@@ -114,7 +134,7 @@ export default function AdminDashboard() {
         {/* Recent activity */}
         <div className="card-dark rounded-3xl overflow-hidden">
           <div className="px-6 py-4 border-b border-dark-800">
-            <h2 className="font-bold text-white">Recent Activity</h2>
+            <h2 className="font-bold text-dark-400">Recent Activity</h2>
           </div>
           <div className="p-6 space-y-4">
             {recentActivity.map((activity, i) => (
@@ -135,11 +155,11 @@ export default function AdminDashboard() {
 
       {/* Quick admin actions */}
       <div>
-        <h2 className="text-lg font-bold text-white mb-4">Quick Actions</h2>
+        <h2 className="text-lg font-bold text-dark-400 mb-4">Quick Actions</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
-            { href: '/dashboard/admin/users?pending=true', icon: <ShieldAlert size={20} />, label: 'Pending Tutors', count: 5, color: 'text-yellow-400' },
-            { href: '/dashboard/admin/courses', icon: <BookOpen size={20} />, label: 'Review Courses', count: 3, color: 'text-blue-400' },
+            { href: '/dashboard/admin/users?pending=true', icon: <ShieldAlert size={20} />, label: 'Pending Tutors', count: pendingCounts.tutors, color: 'text-yellow-400' },
+            { href: '/dashboard/admin/courses', icon: <BookOpen size={20} />, label: 'Review Courses', count: pendingCounts.courses, color: 'text-blue-400' },
             { href: '/dashboard/admin/users', icon: <Users size={20} />, label: 'Manage Users', count: null, color: 'text-purple-400' },
             { href: '/dashboard/admin/revenue', icon: <DollarSign size={20} />, label: 'Revenue Report', count: null, color: 'text-green-400' },
           ].map((action, i) => (
@@ -147,8 +167,8 @@ export default function AdminDashboard() {
               className="card-dark card-hover rounded-2xl p-5 flex items-center gap-4">
               <div className={`p-3 rounded-xl ${action.color} bg-current/10`}>{action.icon}</div>
               <div>
-                <div className="text-white text-sm font-medium">{action.label}</div>
-                {action.count !== null && (
+                <div className="text-dark-400 text-sm font-medium">{action.label}</div>
+                {action.count !== null && action.count > 0 && (
                   <div className="text-brand-400 text-xs font-bold">{action.count} pending</div>
                 )}
               </div>

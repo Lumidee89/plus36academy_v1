@@ -1,6 +1,6 @@
-// src/app/layout.tsx
 import type { Metadata } from 'next'
 import './globals.css'
+import Script from 'next/script'
 
 export const metadata: Metadata = {
   title: 'Plus36 Academy — Learn. Grow. Earn.',
@@ -20,6 +20,12 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="dark">
+      <head>
+        <Script 
+          src="https://js.paystack.co/v1/inline.js" 
+          strategy="beforeInteractive"
+        />
+      </head>
       <body className="bg-dark-950 text-white antialiased">
         {children}
       </body>

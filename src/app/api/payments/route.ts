@@ -1,4 +1,3 @@
-// src/app/api/payments/route.ts
 import { NextRequest } from 'next/server'
 import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
@@ -100,14 +99,17 @@ export async function POST(request: NextRequest) {
     // })
     // return successResponse({ paymentId: payment.id, checkoutUrl: session.url })
 
-    // PLACEHOLDER - configure payment provider
+    // Return everything the frontend (PaystackPop.setup) needs
     return successResponse({
       paymentId: payment.id,
       amount: course.price,
       currency: course.currency,
-      message: 'Configure PAYSTACK or STRIPE to process payments. Payment record created.',
-      // For testing: simulate payment
-      testCheckoutUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/payment/test?paymentId=${payment.id}`,
+      email: user.email,
+      metadata: {
+        paymentId: payment.id,
+        courseId,
+        userId: user.id,
+      },
     })
   } catch (error) {
     console.error('Payment error:', error)

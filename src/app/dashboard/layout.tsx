@@ -4,8 +4,10 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
   LayoutDashboard, BookOpen, Users, BarChart3, Settings, LogOut,
-  Bell, Menu, X, Upload, GraduationCap, Award, CreditCard, ChevronRight
+  Bell, Menu, X, Upload, GraduationCap, Award, CreditCard, ChevronRight, Wallet,
+  FileQuestion, ClipboardList, PenTool
 } from 'lucide-react'
+import Image from 'next/image'
 
 interface User {
   id: string
@@ -24,6 +26,7 @@ function getNavItems(role: string) {
     return [
       ...base,
       { href: '/dashboard/student/courses', icon: <BookOpen size={18} />, label: 'My Courses' },
+      { href: '/dashboard/student/assessments', icon: <ClipboardList size={18} />, label: 'Tests & Exams' },
       { href: '/dashboard/student/explore', icon: <GraduationCap size={18} />, label: 'Explore' },
       { href: '/dashboard/student/certificates', icon: <Award size={18} />, label: 'Certificates' },
       { href: '/dashboard/student/payments', icon: <CreditCard size={18} />, label: 'Payments' },
@@ -34,6 +37,7 @@ function getNavItems(role: string) {
     return [
       ...base,
       { href: '/dashboard/tutor/courses', icon: <BookOpen size={18} />, label: 'My Courses' },
+      { href: '/dashboard/tutor/assessments', icon: <FileQuestion size={18} />, label: 'Tests & Exams' },
       { href: '/dashboard/tutor/upload', icon: <Upload size={18} />, label: 'Upload Material' },
       { href: '/dashboard/tutor/students', icon: <Users size={18} />, label: 'My Students' },
       { href: '/dashboard/tutor/earnings', icon: <BarChart3 size={18} />, label: 'Earnings' },
@@ -46,7 +50,7 @@ function getNavItems(role: string) {
     { href: '/dashboard/admin/courses', icon: <BookOpen size={18} />, label: 'Courses' },
     { href: '/dashboard/admin/users', icon: <Users size={18} />, label: 'Users' },
     { href: '/dashboard/admin/revenue', icon: <BarChart3 size={18} />, label: 'Revenue' },
-    { href: '/dashboard/admin/analytics', icon: <BarChart3 size={18} />, label: 'Analytics' },
+    { href: '/dashboard/admin/withdrawals', icon: <Wallet size={18} />, label: 'Withdrawals' },
   ]
 }
 
@@ -73,7 +77,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-dark-950 flex items-center justify-center">
+      <div className="min-h-screen bg-dark-300 flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-brand-500/30 border-t-brand-500 rounded-full animate-spin" />
       </div>
     )
@@ -81,15 +85,38 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const navItems = getNavItems(user.role)
 
+  // Function to check if a nav item is active
+  const isActiveLink = (itemHref: string) => {
+    // Exact match for dashboard
+    if (itemHref === `/dashboard/${user.role.toLowerCase()}`) {
+      return pathname === itemHref
+    }
+    
+    // For other routes, check if the path starts with the href
+    // But make sure it's not matching dashboard routes
+    if (pathname.startsWith(itemHref)) {
+      // Check if this is a sub-route of the current item
+      // For example: /dashboard/student/courses/123 should match /dashboard/student/courses
+      const remainingPath = pathname.substring(itemHref.length)
+      return remainingPath === '' || remainingPath.startsWith('/')
+    }
+    
+    return false
+  }
+
   const SidebarContent = () => (
     <div className="flex flex-col h-full">
       {/* Logo */}
       <div className="p-6 border-b border-dark-800">
         <Link href="/" className="flex items-center gap-2">
-          {/* <div className="w-8 h-8 rounded-lg bg-brand-500 flex items-center justify-center font-bold text-white text-xs">
-            P36
-          </div> */}
-          <span className="font-display font-bold text-white">Plus36</span>
+          <Image 
+              src="/images/logo.png"
+              alt="Plus36 Academy"
+              width={150}
+              height={30}
+              className="object-contain"
+              priority
+            /> 
         </Link>
       </div>
 
@@ -100,7 +127,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             {user.avatar || user.name[0].toUpperCase()}
           </div>
           <div className="flex-1 min-w-0">
-            <div className="text-white text-sm font-semibold truncate">{user.name}</div>
+            <div className="text-dark-300 text-sm font-semibold truncate">{user.name}</div>
             <div className="text-dark-400 text-xs">{user.role}</div>
           </div>
         </div>
@@ -109,7 +136,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Nav */}
       <nav className="flex-1 p-4 space-y-1">
         {navItems.map((item) => {
-          const active = pathname === item.href
+          const active = isActiveLink(item.href)
           return (
             <Link
               key={item.href}
@@ -118,7 +145,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm transition-all duration-200 ${
                 active
                   ? 'bg-brand-500 text-white shadow-lg shadow-brand-500/30'
-                  : 'text-dark-400 hover:text-white hover:bg-dark-800'
+                  : 'text-dark-400 hover:text-white hover:bg-dark-100'
               }`}>
               {item.icon}
               {item.label}
@@ -130,7 +157,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* Bottom */}
       <div className="p-4 border-t border-dark-800 space-y-1">
-        <Link href="/dashboard/settings" className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-dark-400 hover:text-white hover:bg-dark-800 transition-all">
+        <Link href="/dashboard/settings" className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-dark-400 hover:text-white hover:bg-dark-100 transition-all">
           <Settings size={18} />
           Settings
         </Link>

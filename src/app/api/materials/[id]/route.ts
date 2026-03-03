@@ -1,4 +1,3 @@
-// src/app/api/materials/[id]/route.ts
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireRole } from '@/lib/auth'
@@ -37,13 +36,24 @@ export async function PUT(
     }
 
     const body = await request.json()
+    
+    // Clean up empty strings
+    const cleanedBody = {
+      ...body,
+      fileUrl: body.fileUrl || undefined,
+      videoUrl: body.videoUrl || undefined,
+      content: body.content || undefined,
+      description: body.description || undefined,
+    }
+
     const updated = await prisma.material.update({
       where: { id: params.id },
-      data: body,
+      data: cleanedBody,
     })
 
     return successResponse(updated, 'Material updated')
-  } catch {
+  } catch (error) {
+    console.error('Update material error:', error)
     return errorResponse('Internal server error', 500)
   }
 }

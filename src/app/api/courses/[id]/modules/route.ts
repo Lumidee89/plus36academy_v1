@@ -20,11 +20,14 @@ export async function GET(
       where: { courseId: params.id },
       orderBy: { order: 'asc' },
       include: {
-        materials: { orderBy: { order: 'asc' } },
+        materials: {
+          orderBy: { order: 'asc' },
+        },
       },
     })
+
     return successResponse(modules)
-  } catch (error) {
+  } catch {
     return errorResponse('Internal server error', 500)
   }
 }

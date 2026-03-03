@@ -13,12 +13,12 @@ const nextConfig = {
 
   // Allow large file uploads (default Next.js limit is 4MB for API routes)
   // We handle the size limit ourselves in src/lib/upload.ts
-  api: {
-    bodyParser: {
-      sizeLimit: '600mb',
-    },
-    responseLimit: false,
-  },
+  // api: {
+  //   bodyParser: {
+  //     sizeLimit: '600mb',
+  //   },
+  //   responseLimit: false,
+  // },
 }
 
 module.exports = nextConfig

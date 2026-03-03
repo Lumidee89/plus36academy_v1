@@ -1,6 +1,6 @@
-// src/app/api/courses/route.ts
 import { NextRequest } from 'next/server'
 import { z } from 'zod'
+import { CourseStatus } from '@prisma/client' 
 import { prisma } from '@/lib/prisma'
 import { requireRole, getUserFromRequest } from '@/lib/auth'
 import { successResponse, errorResponse, paginatedResponse, getPaginationParams } from '@/lib/api'
@@ -28,17 +28,17 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search') || ''
     const category = searchParams.get('category') || ''
     const level = searchParams.get('level') || ''
-    const status = searchParams.get('status') || 'PUBLISHED'
+    const status = searchParams.get('status') || ''
     const tutorId = searchParams.get('tutorId') || ''
 
-    // Check if requesting user is tutor/admin (can see their own drafts)
+    // Get the authenticated user
     const user = await getUserFromRequest(request)
 
     const where: Record<string, unknown> = {}
 
+    // If user is a tutor, only show their courses
     if (user?.role === 'TUTOR') {
       where.tutorId = user.id
-      if (status) where.status = status
     } else if (user?.role === 'ADMIN') {
       if (status) where.status = status
       if (tutorId) where.tutorId = tutorId
@@ -50,12 +50,13 @@ export async function GET(request: NextRequest) {
       where.OR = [
         { title: { contains: search, mode: 'insensitive' } },
         { description: { contains: search, mode: 'insensitive' } },
-        { tags: { has: search } },
       ]
     }
 
     if (category) where.categoryId = category
     if (level) where.level = level
+
+    console.log('Courses query where:', where)
 
     const [courses, total] = await Promise.all([
       prisma.course.findMany({
@@ -73,6 +74,25 @@ export async function GET(request: NextRequest) {
       prisma.course.count({ where }),
     ])
 
+    console.log(`Found ${courses.length} courses`)
+
+    // Safe JSON parser function
+    const safeJsonParse = (value: any): any[] => {
+      if (!value) return []
+      if (Array.isArray(value)) return value
+      if (typeof value === 'string') {
+        // Check if it's an empty string or looks like a simple string
+        if (value === '' || value === '[]') return []
+        try {
+          return JSON.parse(value)
+        } catch {
+          // If it's not valid JSON, treat it as a single string item
+          return [value]
+        }
+      }
+      return []
+    }
+
     const coursesWithRating = courses.map((course) => ({
       ...course,
       avgRating:
@@ -80,6 +100,10 @@ export async function GET(request: NextRequest) {
           ? course.reviews.reduce((acc, r) => acc + r.rating, 0) / course.reviews.length
           : 0,
       reviews: undefined,
+      // Safely parse JSON fields
+      requirements: safeJsonParse(course.requirements),
+      objectives: safeJsonParse(course.objectives),
+      tags: safeJsonParse(course.tags),
     }))
 
     return paginatedResponse(coursesWithRating, total, page, limit)
@@ -107,15 +131,45 @@ export async function POST(request: NextRequest) {
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/(^-|-$)/g, '') + '-' + Date.now()
 
+    const categoryId = data.categoryId && data.categoryId.trim() !== '' 
+      ? data.categoryId 
+      : null
+    
+    const status = user.role === 'ADMIN' 
+      ? 'PUBLISHED' 
+      : 'PENDING'
+    
+      const courseData = {
+      title: data.title,
+      description: data.description,
+      price: data.price,
+      currency: data.currency,
+      level: data.level,
+      language: data.language,
+      requirements: data.requirements?.length ? JSON.stringify(data.requirements) : '[]',
+      objectives: data.objectives?.length ? JSON.stringify(data.objectives) : '[]',
+      tags: data.tags?.length ? JSON.stringify(data.tags) : '[]',
+      categoryId: categoryId,
+      isFreemium: data.isFreemium,
+      thumbnail: data.thumbnail,
+      slug,
+      status: status as CourseStatus,
+      tutorId: user.id,
+    }
+
     const course = await prisma.course.create({
-      data: {
-        ...data,
-        slug,
-        tutorId: user.id,
-      },
+      data: courseData,
     })
 
-    return successResponse(course, 'Course created successfully', 201)
+    // Parse back for response
+    const formattedCourse = {
+      ...course,
+      requirements: course.requirements ? JSON.parse(course.requirements as string) : [],
+      objectives: course.objectives ? JSON.parse(course.objectives as string) : [],
+      tags: course.tags ? JSON.parse(course.tags as string) : [],
+    }
+
+    return successResponse(formattedCourse, 'Course created successfully. It will be reviewed by an admin.', 201)
   } catch (error) {
     console.error('Create course error:', error)
     return errorResponse('Internal server error', 500)

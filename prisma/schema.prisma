@@ -1,6 +1,3 @@
-// This is your Prisma schema file
-// Learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -8,6 +5,226 @@ generator client {
 datasource db {
   provider = "mysql"
   url      = env("DATABASE_URL")
+}
+
+model User {
+  id         String   @id @default(cuid())
+  email      String   @unique
+  name       String
+  password   String
+  role       Role     @default(STUDENT)
+  avatar     String?
+  bio        String?
+  phone      String?
+  isVerified Boolean  @default(false)
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relations
+  taughtCourses      Course[]            @relation("TutorCourses")
+  enrollments        Enrollment[]
+  notifications      Notification[]
+  payments           Payment[]
+  reviews            Review[]
+  sessions           Session[]
+  assessmentAttempts AssessmentAttempt[] // For student attempts
+
+  @@map("users")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model Category {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  slug        String   @unique
+  description String?
+  icon        String?
+  createdAt   DateTime @default(now())
+  courses     Course[]
+
+  @@map("categories")
+}
+
+model Course {
+  id           String       @id @default(cuid())
+  title        String
+  slug         String       @unique
+  description  String       @db.LongText
+  thumbnail    String?
+  price        Float        @default(0)
+  currency     String       @default("NGN")
+  status       CourseStatus @default(PENDING)
+  level        String       @default("Beginner")
+  duration     String?
+  language     String       @default("English")
+  requirements Json
+  objectives   Json
+  tags         Json
+  isFreemium   Boolean      @default(false)
+  tutorId      String
+  categoryId   String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  category     Category?    @relation(fields: [categoryId], references: [id])
+  tutor        User         @relation("TutorCourses", fields: [tutorId], references: [id])
+  enrollments  Enrollment[]
+  modules      Module[]
+  payments     Payment[]
+  reviews      Review[]
+  assessments  Assessment[]
+
+  @@index([categoryId])
+  @@index([tutorId])
+  @@map("courses")
+}
+
+model Module {
+  id          String       @id @default(cuid())
+  title       String
+  description String?
+  order       Int
+  courseId    String
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  materials   Material[]
+  course      Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  assessments Assessment[]
+
+  @@index([courseId])
+  @@map("modules")
+}
+
+model Material {
+  id          String       @id @default(cuid())
+  title       String
+  description String?
+  type        MaterialType
+  fileUrl     String?
+  videoUrl    String?
+  content     String?      @db.LongText
+  duration    Int?
+  fileSize    Int?
+  mimeType    String?
+  order       Int
+  isFree      Boolean      @default(false)
+  moduleId    String
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  module      Module       @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  progress    Progress[]
+
+  @@index([moduleId])
+  @@map("materials")
+}
+
+model Enrollment {
+  id          String           @id @default(cuid())
+  userId      String
+  courseId    String
+  status      EnrollmentStatus @default(ACTIVE)
+  progress    Float            @default(0)
+  completedAt DateTime?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  course      Course           @relation(fields: [courseId], references: [id])
+  user        User             @relation(fields: [userId], references: [id])
+  progresses  Progress[]
+
+  @@unique([userId, courseId])
+  @@index([courseId])
+  @@map("enrollments")
+}
+
+model Progress {
+  id           String     @id @default(cuid())
+  enrollmentId String
+  materialId   String
+  completed    Boolean    @default(false)
+  watchTime    Int?
+  completedAt  DateTime?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  enrollment   Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  material     Material   @relation(fields: [materialId], references: [id], onDelete: Cascade)
+
+  @@unique([enrollmentId, materialId])
+  @@index([materialId])
+  @@map("progress")
+}
+
+model Payment {
+  id          String        @id @default(cuid())
+  userId      String
+  courseId    String
+  amount      Float
+  currency    String        @default("NGN")
+  status      PaymentStatus @default(PENDING)
+  provider    String
+  providerRef String?       @unique
+  metadata    Json?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  course      Course        @relation(fields: [courseId], references: [id])
+  user        User          @relation(fields: [userId], references: [id])
+
+  @@index([courseId])
+  @@index([userId])
+  @@map("payments")
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  userId    String
+  courseId  String
+  rating    Int
+  comment   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  course    Course   @relation(fields: [courseId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@unique([userId, courseId])
+  @@index([courseId])
+  @@map("reviews")
+}
+
+model Announcement {
+  id         String   @id @default(cuid())
+  title      String
+  content    String
+  targetRole Role?
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  @@map("announcements")
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String
+  title     String
+  message   String   @db.Text
+  data      Json?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+  @@index([userId])
+  @@map("notifications")
 }
 
 enum Role {
@@ -18,7 +235,9 @@ enum Role {
 
 enum CourseStatus {
   DRAFT
+  PENDING
   PUBLISHED
+  REJECTED
   ARCHIVED
 }
 
@@ -43,201 +262,107 @@ enum EnrollmentStatus {
   SUSPENDED
 }
 
-model User {
-  id            String   @id @default(cuid())
-  email         String   @unique
-  name          String
-  password      String
-  role          Role     @default(STUDENT)
-  avatar        String?
-  bio           String?
-  phone         String?
-  isVerified    Boolean  @default(false)
-  isActive      Boolean  @default(true)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+enum AssessmentType {
+  TEST
+  EXAM
+}
+
+enum QuestionType {
+  MULTIPLE_CHOICE
+  TRUE_FALSE
+  SHORT_ANSWER
+  ESSAY
+}
+
+model Assessment {
+  id               String         @id @default(cuid())
+  title            String
+  description      String?
+  type             AssessmentType
+  courseId         String
+  moduleId         String?
+  timeLimit        Int?
+  passingScore     Int?
+  maxAttempts      Int?           @default(1)
+  shuffleQuestions Boolean        @default(false)
+  showResults      Boolean        @default(true)
+  isPublished      Boolean        @default(false)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
 
   // Relations
-  taughtCourses Course[]     @relation("TutorCourses")
-  enrollments   Enrollment[]
-  payments      Payment[]
-  reviews       Review[]
-  sessions      Session[]
+  course    Course              @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  module    Module?             @relation(fields: [moduleId], references: [id], onDelete: SetNull)
+  questions Question[]
+  attempts  AssessmentAttempt[]
 
-  @@map("users")
+  @@index([courseId])
+  @@index([moduleId])
+  @@map("assessments")
 }
 
-model Session {
-  id        String   @id @default(cuid())
-  userId    String
-  token     String   @unique
-  expiresAt DateTime
-  createdAt DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map("sessions")
-}
-
-model Category {
-  id          String   @id @default(cuid())
-  name        String   @unique
-  slug        String   @unique
-  description String?
-  icon        String?
-  createdAt   DateTime @default(now())
-
-  courses Course[]
-
-  @@map("categories")
-}
-
-model Course {
-  id           String       @id @default(cuid())
-  title        String
-  slug         String       @unique
-  description  String
-  thumbnail    String?
-  price        Float        @default(0)
-  currency     String       @default("NGN")
-  status       CourseStatus @default(DRAFT)
-  level        String       @default("Beginner")
-  duration     String?
-  language     String       @default("English")
-  requirements String?   @db.Text  // stored as JSON string
-  objectives   String?   @db.Text  // stored as JSON string
-  tags         String?   @db.Text  // stored as JSON string
-  isFreemium   Boolean      @default(false)
-  tutorId      String
-  categoryId   String?
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
+model Question {
+  id            String       @id @default(cuid())
+  assessmentId  String
+  text          String
+  type          QuestionType
+  points        Int          @default(1)
+  options       Json?
+  correctAnswer Json?
+  explanation   String?
+  order         Int
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
 
   // Relations
-  tutor       User         @relation("TutorCourses", fields: [tutorId], references: [id])
-  category    Category?    @relation(fields: [categoryId], references: [id])
-  modules     Module[]
-  enrollments Enrollment[]
-  payments    Payment[]
-  reviews     Review[]
+  assessment Assessment      @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  answers    StudentAnswer[]
 
-  @@map("courses")
+  @@index([assessmentId])
+  @@map("questions")
 }
 
-model Module {
-  id          String   @id @default(cuid())
-  title       String
-  description String?
-  order       Int
-  courseId    String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+model AssessmentAttempt {
+  id           String    @id @default(cuid())
+  assessmentId String
+  studentId    String
+  startedAt    DateTime  @default(now())
+  submittedAt  DateTime?
+  score        Float?
+  passed       Boolean?  @default(false)
+  timeSpent    Int?
+  answers      Json?
+  status       String    @default("in_progress")
 
-  course    Course     @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  materials Material[]
+  // Relations
+  assessment      Assessment      @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  student         User            @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  questionAnswers StudentAnswer[]
 
-  @@map("modules")
+  @@unique([assessmentId, studentId, status])
+  @@index([assessmentId])
+  @@index([studentId])
+  @@map("assessment_attempts")
 }
 
-model Material {
-  id          String       @id @default(cuid())
-  title       String
-  description String?
-  type        MaterialType
-  fileUrl     String?
-  videoUrl    String?
-  content     String?      // For text materials
-  duration    Int?         // In seconds for videos
-  fileSize    Int?         // In bytes
-  mimeType    String?
-  order       Int
-  isFree      Boolean      @default(false)
-  moduleId    String
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+model StudentAnswer {
+  id           String    @id @default(cuid())
+  attemptId    String
+  questionId   String
+  answer       Json
+  isCorrect    Boolean?  @default(false)
+  pointsEarned Int?      @default(0)
+  feedback     String?
+  gradedAt     DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
-  module   Module    @relation(fields: [moduleId], references: [id], onDelete: Cascade)
-  progress Progress[]
+  // Relations
+  attempt  AssessmentAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  question Question          @relation(fields: [questionId], references: [id], onDelete: Cascade)
 
-  @@map("materials")
-}
-
-model Enrollment {
-  id        String           @id @default(cuid())
-  userId    String
-  courseId  String
-  status    EnrollmentStatus @default(ACTIVE)
-  progress  Float            @default(0)
-  completedAt DateTime?
-  createdAt DateTime         @default(now())
-  updatedAt DateTime         @updatedAt
-
-  user     User       @relation(fields: [userId], references: [id])
-  course   Course     @relation(fields: [courseId], references: [id])
-  progresses Progress[]
-
-  @@unique([userId, courseId])
-  @@map("enrollments")
-}
-
-model Progress {
-  id           String     @id @default(cuid())
-  enrollmentId String
-  materialId   String
-  completed    Boolean    @default(false)
-  watchTime    Int?       // In seconds
-  completedAt  DateTime?
-  createdAt    DateTime   @default(now())
-
-  enrollment Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
-  material   Material   @relation(fields: [materialId], references: [id], onDelete: Cascade)
-
-  @@unique([enrollmentId, materialId])
-  @@map("progress")
-}
-
-model Payment {
-  id              String        @id @default(cuid())
-  userId          String
-  courseId        String
-  amount          Float
-  currency        String        @default("NGN")
-  status          PaymentStatus @default(PENDING)
-  provider        String        // stripe, paystack, etc.
-  providerRef     String?       @unique
-  metadata        Json?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-
-  user   User   @relation(fields: [userId], references: [id])
-  course Course @relation(fields: [courseId], references: [id])
-
-  @@map("payments")
-}
-
-model Review {
-  id        String   @id @default(cuid())
-  userId    String
-  courseId  String
-  rating    Int      // 1-5
-  comment   String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  user   User   @relation(fields: [userId], references: [id])
-  course Course @relation(fields: [courseId], references: [id])
-
-  @@unique([userId, courseId])
-  @@map("reviews")
-}
-
-model Announcement {
-  id        String   @id @default(cuid())
-  title     String
-  content   String
-  targetRole Role?   // null = all roles
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-
-  @@map("announcements")
+  @@unique([attemptId, questionId])
+  @@index([attemptId])
+  @@index([questionId])
+  @@map("student_answers")
 }
